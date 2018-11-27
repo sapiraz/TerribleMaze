@@ -1,0 +1,4 @@
+name: mazeGenerator
+version: 1.0
+main: com.daniel.maze.Main
+description: oh shit
