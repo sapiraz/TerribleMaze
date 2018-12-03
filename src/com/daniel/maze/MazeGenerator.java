@@ -8,12 +8,13 @@ public class MazeGenerator {
 	public ArrayList<MazeRepresentation> mazeRepresentations = new ArrayList<MazeRepresentation>();
 	public ArrayList<MazeBuilder> mazeBuilders = new ArrayList<MazeBuilder>();
 
-	public void generate(Location l) {
+	public void generate(Location l, int size, int height, int material) {
 		MazeRepresentation mazeRepresentation = new MazeRepresentation();
 		mazeRepresentation.setLocation(l);
-		mazeRepresentation.setSize(10);
-		mazeRepresentation.setHeight(5);
+		mazeRepresentation.setSize(size);
+		mazeRepresentation.setHeight(height);
 		mazeRepresentation.setWallThickness(1);
+		mazeRepresentation.setMaterial(material);
 		//Creates a Builder for the generation task
 		createBuilder(mazeRepresentation);
 		mazeRepresentations.add(mazeRepresentation);
@@ -22,6 +23,7 @@ public class MazeGenerator {
 	public MazeBuilder createBuilder(MazeRepresentation mazeRepresentation) {
 		MazeBuilder mazeBuilder = new MazeBuilder(mazeRepresentation);
 		mazeBuilders.add(mazeBuilder);
+		mazeBuilder.start();
 		return mazeBuilder;
 	}
 }

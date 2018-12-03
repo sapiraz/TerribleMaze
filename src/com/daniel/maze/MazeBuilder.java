@@ -1,5 +1,7 @@
 package com.daniel.maze;
 
+import java.awt.geom.Point2D;
+import java.util.ArrayList;
 import java.util.List;
 import java.util.Arrays;
 import java.util.Collections;
@@ -11,183 +13,132 @@ import org.bukkit.Location;
 import org.bukkit.Material;
 import org.bukkit.World;
 
-public class MazeBuilder {
+public class MazeBuilder extends Thread {
 	private MazeRepresentation mazeRepresentation;
 	
 	public MazeBuilder(MazeRepresentation mazeRepresentation) {
 		this.mazeRepresentation = mazeRepresentation;
+	}
+
+	public void run() {
 		this.fillSpace();
 		this.carve();
-		
-	}
-	private int getWorldLocationX(int localX) {
-		return (localX + (mazeRepresentation.getWallThickness() * localX)) + (int) Math.floor(mazeRepresentation.getLocation().getX());
 	}
 
-	private int getWorldLocationY(int localY) {
-		return localY + (int) Math.floor(mazeRepresentation.getLocation().getY());
+	public int getGlobalX(int localX) {
+		return localX + (int) Math.floor(mazeRepresentation.getLocation().getX());
 	}
 
-	private int getWorldLocationZ(int localZ) {
-		return (localZ + (mazeRepresentation.wallThickness * localZ)) + (int) Math.floor(mazeRepresentation.getLocation().getZ());
+	public int getGlobalZ(int localZ) {
+		return localZ + (int) Math.floor(mazeRepresentation.getLocation().getZ());
 	}
 
 	private void fillSpace() {
-		Location location = mazeRepresentation.getLocation();
-		World world = location.getWorld();
-		//Set blocks.
+		Material material = Material.getMaterial(mazeRepresentation.getMaterial());
+		Location mazeLocation = mazeRepresentation.getLocation();
+		World world = mazeLocation.getWorld();
 		for(int x = 0; x < mazeRepresentation.getSize(); x++) {
 			for(int z = 0; z < mazeRepresentation.getSize(); z++) {
 				for(int y = 0; y < mazeRepresentation.getHeight(); y++) {
-					Location blockLocation = new Location(world, location.getX() + x, location.getY() + y, location.getZ() + z);
-					world.getBlockAt(blockLocation).setType(Material.COBBLESTONE);
+					Location blockLocation = mazeLocation.clone();
+					blockLocation.add(x, y, z);
+					world.getBlockAt(blockLocation).setType(material);
 				}
 			}	
 		}
 	}
 	
 	private void carve() {
-		Location Mazelocation = mazeRepresentation.getLocation();
-		World world = Mazelocation.getWorld();
-		List<Direction> possibleDirections = Arrays.asList(Direction.FORWARD, Direction.RIGHT, Direction.BACKWARD, Direction.LEFT);
-		int currentX = 0;
-		int currentZ = 0;
-//		Location location = new Location(world, currentX, currentY, currentZ);
+		List<Direction> possibleDirections = Arrays.asList(Direction.NORTH, Direction.EAST, Direction.SOUTH, Direction.WEST);
 		boolean hasUnvisited = true;
 		boolean[][] visitedAreas = new boolean[mazeRepresentation.getSize()][mazeRepresentation.getSize()];
-//		for (int i = 0; i < mazeRepresentation.getHeight(); i++){
-//			Location verticalLocation = location.clone();
-//			verticalLocation.setY(verticalLocation.getY() + i);
-//			world.getBlockAt(verticalLocation).setType(Material.AIR);
-//		}
+		int currentX = 0;
+		int currentZ = 0;
 		visitedAreas[currentX][currentZ] = true;
-		int counter = 0;
+		ArrayList<Point2D> history = new ArrayList(){{
+			add(new Point2D.Double(0, 0));
+		}};
 		while(hasUnvisited) {
-//			Bukkit.broadcastMessage("I love you a lot");
-			int x = currentX;
-			int z = currentZ;
 			int lastX = 0;
 			int lastZ = 0;
-//			Collections.shuffle(possibleDirections);
+			int nextX = currentX;
+			int nextZ = currentZ;
 			boolean foundGoodLocation = false;
+			Collections.shuffle(possibleDirections);
 			// Try finding a direction to go to
 			for(Direction d : possibleDirections) {
 				switch(d) {
-					case FORWARD:
-						x = currentX;
-						z = currentZ + 1;
+					case SOUTH:
+						nextX = currentX;
+						nextZ = currentZ + 2;
 					break;
-					case RIGHT:
-						x = currentX + 1;
-						z = currentZ;
+					case WEST:
+						nextX = currentX - 2;
+						nextZ = currentZ;
 					break;
-					case BACKWARD:
-						x = currentX;
-						z = currentZ - 1;
+					case NORTH:
+						nextX = currentX;
+						nextZ = currentZ - 2;
 					break;
-					case LEFT:
-						x = currentX - 1;
-						z = currentZ;
+					case EAST:
+						nextX = currentX + 2;
+						nextZ = currentZ;
 					break;
 				}
-//				 Check if the current direction was visited before,
-//				 if not - stop checking other directions and go there
-				if (x >= 0 && getWorldLocationX(x) < mazeRepresentation.getLocation().getX() + mazeRepresentation.getSize() &&
-					z >= 0 && getWorldLocationZ(z) < mazeRepresentation.getLocation().getZ() + mazeRepresentation.getSize() &&
-					!visitedAreas[x][z]){
+				// Check if the current direction was visited before,
+				// if not - stop checking other directions and go there
+				if (nextX >= 0 && getGlobalX(nextX) < mazeRepresentation.getLocation().getX() + mazeRepresentation.getSize() &&
+					nextZ >= 0 && getGlobalZ(nextZ) < mazeRepresentation.getLocation().getZ() + mazeRepresentation.getSize() &&
+					!visitedAreas[nextX][nextZ]){
+					// Good location found, choose it and end the loop
 					foundGoodLocation = true;
-					//good location, set to it.
-//					chosenLocation = new Location(world, x, currentY, z);
 					lastX = currentX;
 					lastZ = currentZ;
-					currentX = x;
-					currentZ = z;
-//					Bukkit.broadcastMessage("Making a step towards: " + d);
+					currentX = nextX;
+					currentZ = nextZ;
 					break;
 				}
 			}
 			// Check if we have a chosen location, if so - step to it
-			if(foundGoodLocation && counter < 15) {
-				counter++;
-				// world.getBlockAt(chosenLocation).setType(Material.AIR);
+			if(foundGoodLocation) {
 				visitedAreas[currentX][currentZ] = true;
+				history.add(new Point2D.Double(currentX, currentZ));
 				breakRange(lastX, lastZ, currentX, currentZ);
-				Bukkit.broadcastMessage("ok");
-				//TODO: remove next line
-//				hasUnvisited = false;
-			}
-			else {
-				hasUnvisited = false;
-				Bukkit.broadcastMessage("done");
-			}
-			// Check for unvisited area.
-			//TODO: randomize step location and check if it's unvisited.
-			// If no unvisited areas left, end loop.
-			// If unvisited: carve to block, set current location and mark visited.
-
-		}
-		
-	}
-	private void breakRange(int fromX, int fromZ, int toX, int toZ){
-//		World world = mazeRepresentation.getLocation().getWorld();
-//		Location l = mazeRepresentation.getLocation().clone();
-//		if (fromX != toX) {
-//			Bukkit.broadcastMessage("digging X");
-//			for (int x = 0; x < toX; x++){
-//				l.setX(getWorldLocationX(x));
-//			world.getBlockAt(l).setType(Material.AIR);
-//				for (int y = 0; y <= mazeRepresentation.getHeight(); y++){
-//					Location yLocation = l.clone();
-//					yLocation.setY(Math.floor(yLocation.getY() + y));
-//					yLocation.getWorld().getBlockAt(yLocation).setType(Material.AIR);
-//				}
-//			}
-//		}
-//		else {
-//			Bukkit.broadcastMessage("digging Z");
-//			for (int z = 0; z < toX; z++){
-//				l.setZ(getWorldLocationX(z));
-//				world.getBlockAt(l).setType(Material.AIR);
-//				for (int y = 0; y <= mazeRepresentation.getHeight(); y++){
-//					Location yLocation = l.clone();
-//					yLocation.setY(Math.floor(yLocation.getY() + y));
-//					yLocation.getWorld().getBlockAt(yLocation).setType(Material.AIR);
-//				}
-//			}
-//		}
-
-		if (fromX == toX) {
-			int zDistance = toZ - fromZ;
-			Bukkit.broadcastMessage("D: " + zDistance);
-			int realWorldFromZ = getWorldLocationZ(fromZ);
-			int wallThickness = mazeRepresentation.getWallThickness();
-			int realWorldToZ = realWorldFromZ + zDistance + (zDistance * wallThickness);
-			for (int z = realWorldFromZ; z <= realWorldToZ; z++) {
-				Location l = mazeRepresentation.getLocation().clone();
-				l.setX(getWorldLocationX(fromX));
-				l.setZ(z);
-				for (int y = 0; y <= mazeRepresentation.getHeight(); y++){
-					Location yLocation = l.clone();
-					yLocation.setY(Math.floor(yLocation.getY() + y));
-//					Bukkit.broadcastMessage("1. Breaking a block on: " + (yLocation.toString()));
-					yLocation.getWorld().getBlockAt(yLocation).setType(Material.AIR);
+				if (Main.LOGGING_ENABLED) {
+					Bukkit.getLogger().info("Stepped within the maze");
 				}
 			}
+			// If no place was found and there's still a block we can go back to, do so
+			else if (history.size() > 0) {
+				Point2D lastPosition = history.get(history.size() - 1);
+				currentX = (int) Math.floor(lastPosition.getX());
+				currentZ = (int) Math.floor(lastPosition.getY());
+				history.remove(history.size() - 1);
+			}
+			// If no direction was found at all, end the generation
+			else {
+				hasUnvisited = false;
+				if (Main.LOGGING_ENABLED) {
+					Bukkit.getLogger().info("Done generating maze");
+				}
+			}
+			try {
+				Thread.sleep(50);
+			} catch (InterruptedException e) {
+				e.printStackTrace();
+			}
 		}
-		else {
-			int xDistance = toX - fromX;
-			int realWorldFromX = getWorldLocationX(fromX);
-			int wallThickness = mazeRepresentation.getWallThickness();
-			int realWorldToX = realWorldFromX + xDistance + (xDistance * wallThickness);
-			for (int x = realWorldFromX; x <= realWorldToX; x++) {
+	}
+
+	private void breakRange(int fromX, int fromZ, int toX, int toZ) {
+		for (int x = Math.min(fromX, toX); x <= Math.max(fromX, toX); x++) {
+			for (int z = Math.min(fromZ, toZ); z <= Math.max(fromZ, toZ); z++) {
 				Location l = mazeRepresentation.getLocation().clone();
-				l.setZ(getWorldLocationZ(fromZ));
-				l.setX(x);
+				l.setX(getGlobalX(x));
+				l.setZ(getGlobalZ(z));
 				for (int y = 0; y <= mazeRepresentation.getHeight(); y++){
-					Location yLocation = l.clone();
-					yLocation.setY(Math.floor(yLocation.getY() + y));
-//					Bukkit.broadcastMessage("2. Breaking a block on: " + (yLocation.toString()));
-					yLocation.getWorld().getBlockAt(yLocation).setType(Material.AIR);
+					l.setY(Math.floor(mazeRepresentation.getLocation().getY() + y));
+					l.getWorld().getBlockAt(l).setType(Material.AIR);
 				}
 			}
 		}
